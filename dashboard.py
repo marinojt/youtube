@@ -77,7 +77,9 @@ def render_executive_summary(channel_data, video_analysis, competitor_overview):
     
     # 1. Top-Line KPIs
     st.header("Key Business Performance Indicators")
-    channel_analytics = video_analysis.get('channel_analytics', {})
+    
+    # Defensive check for channel_analytics
+    channel_analytics = video_analysis.get('channel_analytics', {}) if video_analysis else {}
     
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Avg. Revenue per Video", f"${channel_analytics.get('avg_revenue_per_video', 0):.2f}")
@@ -91,35 +93,63 @@ def render_executive_summary(channel_data, video_analysis, competitor_overview):
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("Market Position vs. Competitors")
-        market_stats = competitor_overview.get('competitive_analysis', {}).get('market_statistics', {})
-        if market_stats:
+        
+        # Defensive check for competitor data
+        market_stats = competitor_overview.get('competitive_analysis', {}).get('market_statistics', {}) if competitor_overview else {}
+        competitors_list = competitor_overview.get('competitors', []) if competitor_overview else []
+        
+        if market_stats and competitors_list:
+            leader_subs = max([c.get('subscriber_count', 0) for c in competitors_list]) if competitors_list else 0
+            
+            # Create a DataFrame for the plot
+            chart_data = pd.DataFrame({
+                'Metric': ['Your Channel', 'Market Average', 'Market Leader'],
+                'Subscribers': [
+                    channel_data.get('subscriber_count', 0), 
+                    market_stats.get('avg_subscribers', 0), 
+                    leader_subs
+                ]
+            })
+
             fig = px.bar(
-                y=['Your Channel', 'Market Average', 'Market Leader'],
-                x=[channel_data.get('subscriber_count', 0), market_stats.get('avg_subscribers', 0), max([c['subscriber_count'] for c in competitor_overview.get('competitors', [{'subscriber_count': 0}])])],
+                chart_data,
+                x='Subscribers',
+                y='Metric',
                 orientation='h',
-                labels={'x': 'Subscribers', 'y': ''},
-                text_auto=True
+                text='Subscribers'
             )
-            fig.update_layout(showlegend=False)
+            fig.update_traces(texttemplate='%{text:,.2s}', textposition='outside')
+            fig.update_layout(showlegend=False, yaxis_title=None)
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Competitor data not available for this chart.")
 
     with col2:
         st.subheader("Revenue by Content Category")
-        if not target_video_analysis.get('videos', []):
-            st.info("Video data not available for this chart.")
+        
+        # ** THE FIX IS HERE **
+        # We add a defensive check to make sure video_analysis and the 'videos' key exist
+        if video_analysis and video_analysis.get('videos'):
+            df = pd.DataFrame(video_analysis['videos'])
+            
+            # Ensure the required columns exist before grouping
+            if 'content_category' in df.columns and 'estimated_revenue' in df.columns:
+                revenue_by_cat = df.groupby('content_category')['estimated_revenue'].sum().sort_values(ascending=False).head(10) # Show top 10
+                
+                fig = px.bar(
+                    revenue_by_cat,
+                    x=revenue_by_cat.values,
+                    y=revenue_by_cat.index,
+                    orientation='h',
+                    labels={'x': 'Total Estimated Revenue ($)', 'y': 'Category'},
+                    text=revenue_by_cat.values
+                )
+                fig.update_traces(texttemplate='$%{text:,.2s}', textposition='outside')
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning("Revenue or Category data is missing in the video analysis.")
         else:
-            df = pd.DataFrame(target_video_analysis['videos'])
-            revenue_by_cat = df.groupby('content_category')['estimated_revenue'].sum().sort_values(ascending=False)
-            fig = px.bar(
-                revenue_by_cat,
-                x=revenue_by_cat.values,
-                y=revenue_by_cat.index,
-                orientation='h',
-                labels={'x': 'Total Estimated Revenue ($)', 'y': 'Category'},
-            )
-            st.plotly_chart(fig, use_container_width=True)
+            st.info("Video data not available to create this chart.")
 
     st.markdown("---")
     st.subheader("Executive Recommendation (LLM-Generated Placeholder)")

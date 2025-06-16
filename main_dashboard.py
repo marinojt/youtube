@@ -6,14 +6,14 @@ import json
 
 # --- Page Configuration (set this on the main page) ---
 st.set_page_config(
-    page_title="YouTube BI Suite (Phase 1)",
-    page_icon="📈",
+    page_title="Digital Media BI Platform",
+    page_icon="💼",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # --- Data Loading Function ---
-@st.cache_data(ttl=3600) # Cache data for 1 hour
+@st.cache_data(ttl=3600)
 def load_data(filepath='full_analysis_report.json'):
     """Loads the main analysis JSON file."""
     try:
@@ -25,17 +25,13 @@ def load_data(filepath='full_analysis_report.json'):
         return None
 
 # --- Main App Logic ---
-
-# We load data ONCE and store it in session state for other pages to use.
-# This is the standard and most efficient way to handle data in a multi-page app.
 if 'analysis_data' not in st.session_state:
     st.session_state.analysis_data = load_data()
 
-# Only proceed if data is successfully loaded
 if st.session_state.analysis_data:
     data = st.session_state.analysis_data
 
-    # Extract key data chunks and store them in session_state for easy access on sub-pages
+    # Extract key data chunks and store them in session_state
     target_id = data.get('target_channel_id')
     if target_id and target_id in data.get('channel_deep_dives', {}):
         st.session_state.target_deep_dive = data['channel_deep_dives'][target_id]
@@ -47,14 +43,14 @@ if st.session_state.analysis_data:
 
         # --- Sidebar (common to all pages) ---
         target_channel_data = st.session_state.target_channel_data
-        st.sidebar.info(f"**Analysis Target:**\n\n{target_channel_data.get('channel_title', 'N/A')}")
-        st.sidebar.markdown(f"**Subscribers:** {target_channel_data.get('subscriber_count', 0):,}")
-        st.sidebar.markdown(f"**Total Views:** {target_channel_data.get('total_views', 0):,}")
+        st.sidebar.info(f"**Business Unit Analyzed:**\n\n{target_channel_data.get('channel_title', 'N/A')}")
+        st.sidebar.markdown(f"**Customer Base:** {target_channel_data.get('subscriber_count', 0):,}")
+        st.sidebar.markdown(f"**Total Engagements:** {target_channel_data.get('total_views', 0):,}")
         st.sidebar.markdown("---")
-        st.sidebar.success("Pages 1-3 are powered by real, publicly scraped data.")
-        st.sidebar.warning("Page 4 demonstrates advanced concepts using simulated data.")
+        st.sidebar.success("Reports 1-3 are based on live market data.")
+        st.sidebar.warning("Report 4 (Phase 2) demonstrates advanced analytics using a simulated dataset.")
 
 # --- Landing Page Content ---
-st.title("YouTube Business Intelligence Suite")
-st.markdown("Welcome to the main dashboard. Please select a report from the sidebar to begin your analysis.")
-st.info("This dashboard provides a comprehensive analysis of a YouTube channel's performance, content strategy, and competitive landscape using publicly available data.")
+st.title("Digital Media Business Intelligence Platform")
+st.markdown("Welcome. This platform provides a strategic analysis of a digital media business unit, its product portfolio, and its position within the competitive landscape.")
+st.info("Please select a report from the sidebar to begin.")

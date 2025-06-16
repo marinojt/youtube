@@ -1,26 +1,26 @@
-# pages/02_Content_Portfolio_Deep_Dive.py
+# pages/02_Product_Portfolio_Analysis.py
 
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-st.set_page_config(layout="wide", page_title="Content Portfolio")
+st.set_page_config(layout="wide", page_title="Product Portfolio Analysis")
 
 if 'target_channel_data' not in st.session_state:
-    st.error("Data not loaded. Please go to the main page to load the analysis file.")
+    st.error("Data not loaded. Please return to the main page to load the analysis file.")
 else:
     channel_data = st.session_state.target_channel_data
     videos_df = st.session_state.videos_df
 
-    st.title(f"Content Portfolio Deep Dive: {channel_data.get('channel_title', '')}")
-    st.markdown("*Enterprise View: Product Portfolio Optimization (BCG Matrix)*")
+    st.title("Product Portfolio Analysis")
+    st.markdown("This report uses a BCG-style growth-share matrix to segment the business unit's digital assets, identifying high-potential products and areas for optimization.")
     st.markdown("---")
 
     if videos_df.empty:
-        st.warning("No video data available for this channel.")
+        st.warning("No product asset data available for this business unit.")
     else:
-        st.header("Content Strategy Matrix")
-        st.info("Analyze your video library by performance vs. engagement. Bubble size represents video length.")
+        st.header("Product Performance vs. Satisfaction Matrix")
+        st.info("Asset performance is measured by total engagements (market penetration), and satisfaction is measured by a blended engagement score. Bubble size represents asset complexity (duration).")
 
         if 'view_count' in videos_df.columns and 'engagement_rate' in videos_df.columns:
             videos_df_plottable = videos_df[videos_df['view_count'] > 0].copy()
@@ -31,13 +31,17 @@ else:
                 fig = px.scatter(
                     videos_df_plottable, x="view_count", y="engagement_rate", size="duration_seconds",
                     color="content_category", hover_name="title", log_x=True,
-                    labels={"view_count": "Video Views (Log Scale)", "engagement_rate": "Engagement Rate (%)"},
-                    title="Portfolio View: Views vs. Engagement"
+                    labels={
+                        "view_count": "Product Engagements (Market Penetration)", 
+                        "engagement_rate": "Customer Satisfaction Score (%)",
+                        "content_category": "Product Line"
+                        },
+                    title="Asset Portfolio: Performance vs. Satisfaction"
                 )
-                fig.add_vline(x=median_views, line_width=2, line_dash="dash", line_color="grey", annotation_text="Median Views")
-                fig.add_hline(y=median_engagement, line_width=2, line_dash="dash", line_color="grey", annotation_text="Median Engagement")
+                fig.add_vline(x=median_views, line_width=2, line_dash="dash", line_color="grey", annotation_text="Median Performance")
+                fig.add_hline(y=median_engagement, line_width=2, line_dash="dash", line_color="grey", annotation_text="Median Satisfaction")
                 st.plotly_chart(fig, use_container_width=True)
             else:
-                st.info("No videos with views available to plot.")
+                st.info("No assets with performance data are available to plot.")
         else:
-            st.warning("Required columns ('view_count', 'engagement_rate') not found in video data.")
+            st.warning("Required performance or satisfaction data not found in the dataset.")

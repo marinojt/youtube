@@ -20,6 +20,8 @@ def calculate_new_performance_scores(df):
         
     df_processed = df.copy()
 
+    # Create duration_minutes here so it's always available in the returned DataFrame
+    df_processed['duration_minutes'] = df_processed['duration_seconds'] / 60
     epsilon = 1e-9 
     
     # 1. View Score
@@ -63,22 +65,26 @@ def calculate_new_performance_scores(df):
 if 'target_channel_data' not in st.session_state:
     st.error("Data not loaded. Please return to the main page to load the analysis file.")
 else:
-    df = calculate_new_performance_scores(st.session_state.videos_df)
+    # Use st.session_state.videos_df which is loaded in main_dashboard.py
+    df_calculated = calculate_new_performance_scores(st.session_state.videos_df)
 
     st.title("Product Portfolio Analysis: Performance Breakdown")
     st.markdown("This report deconstructs asset performance using a custom, percentile-based indexing system. Each asset is scored across four key business dimensions: Market Reach, Audience Satisfaction, Social Amplification, and Performance Efficiency.")
     
-    if df.empty:
+    # *** FIX IMPLEMENTED HERE ***
+    # We now check if the calculated DataFrame is empty. If it is, we show a warning.
+    # If not, we proceed to render all the charts inside the 'else' block.
+    if df_calculated.empty:
         st.warning("No video data available to calculate performance scores.")
     else:
         # --- Summary Panel with Gauge Charts ---
         st.markdown("---")
         st.header("Portfolio Health Summary")
         
-        avg_view_score = df['view_score'].mean()
-        avg_eng_score = df['engagement_quality_score'].mean()
-        avg_social_score = df['social_amplification_score'].mean()
-        avg_efficiency_score = df['content_efficiency_score'].mean()
+        avg_view_score = df_calculated['view_score'].mean()
+        avg_eng_score = df_calculated['engagement_quality_score'].mean()
+        avg_social_score = df_calculated['social_amplification_score'].mean()
+        avg_efficiency_score = df_calculated['content_efficiency_score'].mean()
 
         col1, col2, col3, col4 = st.columns(4)
         with col1:
@@ -99,21 +105,15 @@ else:
         st.header("1. Market Reach (View Score)")
         st.info("Measures an asset's ability to penetrate the market, benchmarked against the portfolio's top performers.")
         
-        df['months_since_upload'] = df['days_since_upload'] / 30.44
-        min_y_range = max(0, df['view_score'].min() - 5) # Start the y-axis just below the minimum score
+        df_calculated['months_since_upload'] = df_calculated['days_since_upload'] / 30.44
+        min_y_range = max(0, df_calculated['view_score'].min() - 5)
 
         fig_view = px.scatter(
-            df, x='months_since_upload', y='view_score',
+            df_calculated, x='months_since_upload', y='view_score',
             size='view_count', color='content_category', hover_name='title',
             title="Asset Market Reach vs. Age",
-            labels={
-                'months_since_upload': 'Asset Age (Months)',
-                'view_score': 'Market Reach Score (0-100)',
-                'content_category': 'Product Line',
-                'view_count': 'Total Engagements'
-            }
+            labels={'months_since_upload': 'Asset Age (Months)', 'view_score': 'Market Reach Score (0-100)', 'content_category': 'Product Line', 'view_count': 'Total Engagements'}
         )
-        # TWEAK: Manually set Y-axis range to "zoom in" on the top scores, replicating the user's image.
         fig_view.update_yaxes(range=[min_y_range, 101])
         st.plotly_chart(fig_view, use_container_width=True)
 
@@ -121,16 +121,13 @@ else:
         st.header("2. Audience Satisfaction (Engagement Quality Score)")
         st.info("Measures how deeply an asset resonates with its audience, using a weighted formula where comments are valued more than likes.")
 
-        df['performance_tier'] = pd.cut(df['view_score'], bins=3, labels=['Low Reach', 'Medium Reach', 'High Reach'])
-        # TWEAK: Define specific shades of orange for the tiers
+        df_calculated['performance_tier'] = pd.cut(df_calculated['view_score'], bins=3, labels=['Low Reach', 'Medium Reach', 'High Reach'])
         color_map = {'Low Reach': '#ffcc99', 'Medium Reach': '#ff9933', 'High Reach': '#e67300'}
         
         fig_eng = px.scatter(
-            df, x='view_score', y='engagement_quality_score',
-            color='performance_tier', 
-            color_discrete_map=color_map, # TWEAK: Apply the custom orange color map
-            trendline='ols', 
-            trendline_color_override='rgba(128,128,128,0.5)', 
+            df_calculated, x='view_score', y='engagement_quality_score',
+            color='performance_tier', color_discrete_map=color_map,
+            trendline='ols', trendline_color_override='rgba(128,128,128,0.5)', 
             hover_name='title',
             title="Audience Satisfaction vs. Market Reach",
             labels={'view_score': 'Market Reach Score (0-100)', 'engagement_quality_score': 'Audience Satisfaction Score (0-100)', 'performance_tier': 'Reach Tier'}
@@ -143,25 +140,22 @@ else:
         
         col1, col2 = st.columns([1, 1])
         with col1:
-            top_20_social = df.nlargest(20, 'social_amplification_score').sort_values('social_amplification_score', ascending=True)
+            top_20_social = df_calculated.nlargest(20, 'social_amplification_score').sort_values('social_amplification_score', ascending=True)
             fig_social_bar = px.bar(
                 top_20_social, x='social_amplification_score', y='title',
-                orientation='h', 
-                title="Top 20 Assets by Discussion Generation",
+                orientation='h', title="Top 20 Assets by Discussion Generation",
                 labels={'social_amplification_score': 'Social Amplification Score (0-100)', 'title': 'Asset Title'},
-                text='social_amplification_score' # TWEAK: Add score as text on bars
+                text='social_amplification_score'
             )
-            # TWEAK: Format text and set color and height
             fig_social_bar.update_traces(texttemplate='%{text:.1f}', textposition='outside', marker_color='#2ca02c')
             fig_social_bar.update_layout(height=800) 
             st.plotly_chart(fig_social_bar, use_container_width=True)
         with col2:
             fig_social_hist = px.histogram(
-                df, x='social_amplification_score',
+                df_calculated, x='social_amplification_score',
                 title="Distribution of Social Amplification Scores",
                 labels={'social_amplification_score': 'Score (0-100)'}
             )
-            # TWEAK: Set color and explicitly set the y-axis title
             fig_social_hist.update_traces(marker_color='#2ca02c')
             fig_social_hist.update_layout(yaxis_title="Number of Assets")
             st.plotly_chart(fig_social_hist, use_container_width=True)
@@ -170,19 +164,16 @@ else:
         st.header("4. Performance Efficiency (Content Efficiency Score)")
         st.info("Reveals the optimal asset complexity (duration), guiding future production strategy.")
 
-        max_duration = df['duration_minutes'].max() if not df.empty else 30
-        # TWEAK: Ensure bins cover the full range and labels match
+        max_duration = df_calculated['duration_minutes'].max()
         duration_bins = [0, 2, 5, 10, 20, max(30, max_duration + 1)]
         duration_labels = ['0-2 min', '2-5 min', '5-10 min', '10-20 min', '20+ min']
-        df['duration_bucket'] = pd.cut(df['duration_minutes'], bins=duration_bins, labels=duration_labels, right=False)
+        df_calculated['duration_bucket'] = pd.cut(df_calculated['duration_minutes'], bins=duration_bins, labels=duration_labels, right=False)
         
-        # TWEAK: Use observed=False to ensure all buckets appear, even if empty.
-        heatmap_data = df.groupby('duration_bucket', observed=False)['content_efficiency_score'].mean().reset_index()
+        heatmap_data = df_calculated.groupby('duration_bucket', observed=False)['content_efficiency_score'].mean().reset_index()
         
         fig_efficiency = px.bar(
             heatmap_data, x='duration_bucket', y='content_efficiency_score',
-            color='content_efficiency_score', 
-            color_continuous_scale='Reds', # TWEAK: Use red color scale
+            color='content_efficiency_score', color_continuous_scale='Reds',
             title="Average Performance Efficiency by Asset Duration",
             labels={'duration_bucket': 'Asset Duration Bucket', 'content_efficiency_score': 'Average Efficiency Score (0-100)'}
         )

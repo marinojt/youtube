@@ -44,15 +44,15 @@ def calculate_new_performance_scores(df):
         df_processed['engagement_quality_score'] = 0
 
     # 3. Social Amplification Score
-    df_processed['comment_density'] = df_processed['comment_count'] / ((df_processed['view_count'] / 1000) + epsilon)
-    p95_comment_density = df_processed['comment_density'].quantile(0.95)
+    # BUG FIX: The following line was missing, causing the NameError. It is now restored.
+    comment_density = df_processed['comment_count'] / ((df_processed['view_count'] / 1000) + epsilon)
+    p95_comment_density = comment_density.quantile(0.95)
     if p95_comment_density > 0:
         df_processed['social_amplification_score'] = (comment_density / p95_comment_density).clip(upper=1) * 100
     else:
         df_processed['social_amplification_score'] = 0
 
-    # 4. Content Efficiency Score - CRITICAL BUG FIX APPLIED
-    # Correctly measures views generated per minute of content.
+    # 4. Content Efficiency Score
     efficiency = df_processed['view_count'] / (df_processed['duration_minutes'] + epsilon)
     p95_efficiency = efficiency.quantile(0.95)
     if p95_efficiency > 0:
@@ -75,19 +75,29 @@ else:
     
     # --- Sidebar Filters ---
     st.sidebar.header("Portfolio Filters")
-    all_categories = ['All'] + sorted(base_df['content_category'].unique().tolist())
-    selected_category = st.sidebar.selectbox("Filter by Product Line", all_categories)
+    # Ensure 'content_category' exists before using it
+    if 'content_category' in base_df.columns:
+        all_categories = ['All'] + sorted(base_df['content_category'].unique().tolist())
+        selected_category = st.sidebar.selectbox("Filter by Product Line", all_categories)
+    else:
+        selected_category = 'All' # Default if the column doesn't exist
 
-    base_df['months_since_upload'] = base_df['days_since_upload'] / 30.44
-    min_age, max_age = 0, int(base_df['months_since_upload'].max())
-    selected_age_range = st.sidebar.slider("Filter by Asset Age (Months)", min_age, max_age, (min_age, max_age))
+    # Ensure 'days_since_upload' exists
+    if 'days_since_upload' in base_df.columns:
+        base_df['months_since_upload'] = base_df['days_since_upload'] / 30.44
+        min_age, max_age = 0, int(base_df['months_since_upload'].max()) if not base_df.empty else 0
+        selected_age_range = st.sidebar.slider("Filter by Asset Age (Months)", min_age, max_age, (min_age, max_age))
+    else:
+        selected_age_range = (0, 0)
 
     # --- Filtering Logic ---
-    filtered_df = base_df[
-        (base_df['months_since_upload'] >= selected_age_range[0]) &
-        (base_df['months_since_upload'] <= selected_age_range[1])
-    ]
-    if selected_category != 'All':
+    filtered_df = base_df.copy()
+    if 'months_since_upload' in filtered_df.columns and selected_age_range != (0,0):
+        filtered_df = filtered_df[
+            (filtered_df['months_since_upload'] >= selected_age_range[0]) &
+            (filtered_df['months_since_upload'] <= selected_age_range[1])
+        ]
+    if selected_category != 'All' and 'content_category' in filtered_df.columns:
         filtered_df = filtered_df[filtered_df['content_category'] == selected_category]
 
     df, benchmarks = calculate_new_performance_scores(filtered_df)
@@ -124,14 +134,6 @@ else:
             monthly_trends_melted = monthly_trends.melt(id_vars='months_since_upload', var_name='Metric', value_name='Average Score')
             fig_trend = px.line(monthly_trends_melted, x='months_since_upload', y='Average Score', color='Metric', title="Monthly Performance Score Trends")
             st.plotly_chart(fig_trend, use_container_width=True)
-
-        # --- NEW: Multi-Dimensional Portfolio View ---
-        st.markdown("---")
-        st.header("Multi-Dimensional Portfolio View")
-        st.info("A complete overview of the asset portfolio. X-axis is market reach, Y-axis is audience satisfaction, bubble size represents discussion volume, and color represents efficiency.")
-        fig_portfolio = px.scatter(df, x='view_score', y='engagement_quality_score', size='social_amplification_score', color='content_efficiency_score',
-                                   hover_name='title', title="Complete Portfolio Performance Matrix", labels={'view_score': 'Market Reach', 'engagement_quality_score': 'Audience Satisfaction', 'social_amplification_score': 'Discussion Volume', 'content_efficiency_score': 'Efficiency'}, color_continuous_scale=px.colors.sequential.Viridis)
-        st.plotly_chart(fig_portfolio, use_container_width=True)
 
         # --- Actionable Insights Panel ---
         st.markdown("---")

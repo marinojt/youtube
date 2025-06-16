@@ -43,15 +43,15 @@ def calculate_new_performance_scores(df):
     else:
         df_processed['engagement_quality_score'] = 0
 
-    # 3. Social Amplification Score
-    df_processed['comment_density'] = df_processed['comment_count'] / ((df_processed['view_count'] / 1000) + epsilon)
+    # 3. Social Amplification Score - BUG FIX: RESTORED THIS LINE
+    comment_density = df_processed['comment_count'] / ((df_processed['view_count'] / 1000) + epsilon)
     p95_comment_density = comment_density.quantile(0.95)
     if p95_comment_density > 0:
         df_processed['social_amplification_score'] = (comment_density / p95_comment_density).clip(upper=1) * 100
     else:
         df_processed['social_amplification_score'] = 0
 
-    # 4. Content Efficiency Score - CRITICALLY CORRECTED LOGIC
+    # 4. Content Efficiency Score - CORRECTED LOGIC
     efficiency = df_processed['view_count'] / (df_processed['duration_minutes'] + epsilon)
     p95_efficiency = efficiency.quantile(0.95)
     if p95_efficiency > 0:
@@ -104,7 +104,7 @@ else:
     if df.empty:
         st.warning("No assets match the current filter criteria.")
     else:
-        # --- MODIFICATION: Restored Gauge Chart Summary ---
+        # --- Gauge Chart Summary ---
         st.markdown("---")
         st.header("Portfolio Health Summary")
         
@@ -126,8 +126,8 @@ else:
         with col4:
             fig = go.Figure(go.Indicator(mode="gauge+number", value=avg_efficiency_score, number={'suffix': "%"}, title={'text': "Avg. Performance Efficiency"}, domain={'x': [0, 1], 'y': [0, 1]}, gauge={'axis': {'range': [0, 100]}, 'bar': {'color': "#d62728"}}))
             st.plotly_chart(fig, use_container_width=True)
-
-        # --- MODIFICATION: Strategic Insights Layout Changed ---
+        
+        # --- Strategic Insights ---
         st.markdown("---")
         st.header("Strategic Insights")
         st.subheader("Performance Trends Over Time")
